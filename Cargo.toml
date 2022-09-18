@@ -1,0 +1,21 @@
+[package]
+name = "test"
+version = "0.0.1"
+edition = "2018"
+resolver = "2"
+
+[dependencies]
+wgpu = "0.11"
+cgmath = "0.18"
+env_logger = "0.9"
+futures = "0.3"
+gfx-hal = "0.9"
+image = "0.23"
+log = "0.4"
+pollster = "0.2"
+winit = "0.25"
+anyhow = "1.0"
+
+[[bin]]
+name ="test"
+path ="main.rs"
