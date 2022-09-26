@@ -13,7 +13,7 @@ pub struct Inputs<'a> {
 
 pub async fn run(event_loop: EventLoop<()>, window: Window, inputs: Inputs<'_>, num_vertices: u32) {
   let size = window.inner_size();
-  let instance = wgpu::Instance::new(wgpu::Backends::VULKAN);
+  let instance = wgpu::Instance::new(wgpu::Backends::all());
   let surface = unsafe { instance.create_surface(&window) };
   let adapter = instance
     .request_adapter(&wgpu::RequestAdapterOptions {
