@@ -6,12 +6,12 @@ use winit::{
 };
 
 pub struct Inputs<'a> {
-  pub source: ShaderSource<'a>
+  pub source: ShaderSource<'a>,
   pub topology: PrimitiveTopology,
   pub strip_index_format: Option<IndexFormat>,
 }
 
-pub async fn run(event_loop: EventLoop<()>, window: Window, inputs: Inputs<'_>, num_verties: u32) {
+pub async fn run(event_loop: EventLoop<()>, window: Window, inputs: Inputs<'_>, num_vertices: u32) {
   let size = window.inner_size();
   let instance = wgpu::Instance::new(wgpu::Backends::VULKAN);
   let surface = unsafe { instance.create_surface(&window) };
@@ -80,7 +80,7 @@ pub async fn run(event_loop: EventLoop<()>, window: Window, inputs: Inputs<'_>, 
 
   event_loop.run(move |event, _, control_flow| {
     let _ = (&instance, &adapter, &shader, &pipeline_layout);
-    *control_flow = ControlFlow::wait;
+    *control_flow = ControlFlow::Wait;
     match event {
       Event::WindowEvent {
         event: WindowEvent::Resized(size),
@@ -109,7 +109,7 @@ pub async fn run(event_loop: EventLoop<()>, window: Window, inputs: Inputs<'_>, 
             depth_stencil_attachment: None,
           });
           rpass.set_pipeline(&render_pipeline);
-          rpass.draw(0..num_verties, 0..1);
+          rpass.draw(0..num_vertices, 0..1);
         }
 
         queue.submit(Some(encoder.finish()));
