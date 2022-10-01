@@ -23,3 +23,7 @@ path ="main.rs"
 [[example]]
 name = "ch02_first_triangle"
 path = "examples/ch02/first_triangle.rs"
+
+[[example]]
+name = "ch02_second_triangle"
+path = "examples/ch02/second_triangle.rs"
