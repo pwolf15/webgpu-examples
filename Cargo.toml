@@ -31,3 +31,7 @@ path = "examples/ch02/second_triangle.rs"
 [[example]]
 name = "ch03_point_line"
 path = "examples/ch03/point_line.rs"
+
+[[example]]
+name = "ch03_triangles"
+path = "examples/ch03/triangles.rs"
