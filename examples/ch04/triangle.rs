@@ -54,16 +54,16 @@ struct State {
   surface: wgpu::Surface,
   device: wgpu::Device,
   queue: wgpu::Queue,
-  config: wgpu::SurfaceCOnfiguration,
+  config: wgpu::SurfaceConfiguration,
   size: winit::dpi::PhysicalSize<u32>,
   pipeline: wgpu::RenderPipeline,
   vertex_buffer: wgpu::Buffer,
 }
 
 impl State {
-  async fn new(window: &window) -> Self {
+  async fn new(window: &Window) -> Self {
     let size = window.inner_size();
-    let instance = wgpu::instance::new(wgpu::Backends::all());
+    let instance = wgpu::Instance::new(wgpu::Backends::all());
     let surface = unsafe { instance.create_surface(window) };
     let adapter = instance
       .request_adapter(&wgpu::RequestAdapterOptions {
@@ -120,7 +120,7 @@ impl State {
       entry_point: "fs_main",
       targets: &[wgpu::ColorTargetState {
         format: config.format,
-        blend: Some(wgpu::BLendState {
+        blend: Some(wgpu::BlendState {
           color: wgpu::BlendComponent::REPLACE,
           alpha: wgpu::BlendComponent::REPLACE,
         }),
@@ -128,15 +128,15 @@ impl State {
       }],
     }),
     primitive: wgpu::PrimitiveState{
-      topology: wgpu::PrimitveTopology::TriangleList,
+      topology: wgpu::PrimitiveTopology::TriangleList,
       strip_index_format: None,
       ..Default::default()
     },
     depth_stencil: None,
-    multisample: wgpu::MultiSampleState::default(),
+    multisample: wgpu::MultisampleState::default(),
   });
 
-  let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescrptor {
+  let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
     label: Some("Vertex Buffer"),
     contents: cast_slice(VERTICES),
     usage: wgpu::BufferUsages::VERTEX,
@@ -169,9 +169,96 @@ fn input(&mut self, event: &WindowEvent) -> bool {
 
 fn update(&mut self) {}
 
-fn render(&mut self) -> Result<(), wgpu::SurfaceRror> {
+fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
   let output = self.surface.get_current_texture()?;
   let view = output
     .texture
     .create_view(&wgpu::TextureViewDescriptor::default());
+
+let mut encoder = self
+  .device
+  .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+    label: Some("Render Encoder"),
+  });
+
+{
+  let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+    label: Some("Render Pass"),
+    color_attachments: &[wgpu::RenderPassColorAttachment {
+      view: &view,
+      resolve_target: None,
+      ops: wgpu::Operations {
+        load: wgpu::LoadOp::Clear(wgpu::Color {
+          r: 0.2,
+          g: 0.247,
+          b: 0.314,
+          a: 1.0,
+        }),
+        store: true
+      },
+    }],
+    depth_stencil_attachment: None,
+  });
+
+  render_pass.set_pipeline(&self.pipeline);
+  render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+  render_pass.draw(0..3, 0..1);
+}
+
+self.queue.submit(iter::once(encoder.finish()));
+output.present();
+Ok(())
+}
+}
+
+fn main() {
+  env_logger::init();
+  let event_loop = EventLoop::new();
+  let window = WindowBuilder::new().build(&event_loop).unwrap();
+  window.set_title(&*format!("{}", "ch04-triangle"));
+  let mut state = pollster::block_on(State::new(&window));
+
+  event_loop.run(move |event, _, control_flow| {
+    match event {
+      Event::WindowEvent {
+        ref event,
+        window_id,
+      } if window_id == window.id() => {
+        if !state.input(event) {
+          match event {
+            WindowEvent::CloseRequested
+            | WindowEvent::KeyboardInput {
+              input: 
+                KeyboardInput {
+                  state: ElementState::Pressed,
+                  virtual_keycode: Some(VirtualKeyCode::Escape),
+                  ..
+                },
+              ..
+            } => *control_flow = ControlFlow::Exit,
+            WindowEvent::Resized(physical_size) => {
+              state.resize(*physical_size);
+            }
+            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+              state.resize(**new_inner_size);
+            }
+            _ => {}
+          }
+        }
+      }
+      Event::RedrawRequested(_) => {
+        state.update();
+        match state.render() {
+          Ok(_) => {}
+          Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
+          Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+          Err(e) => eprintln!("{:?}", e),
+        }
+      }
+      Event::MainEventsCleared => {
+        window.request_redraw();
+      }
+      _ => {}
+    }
+  });
 }
