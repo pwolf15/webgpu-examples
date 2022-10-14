@@ -26,26 +26,18 @@ const VERTICES: &[Vertex] = &[
         color: [0.0, 1.0, 0.0],
     },
     Vertex {
-        // Vertex D
-        position: [-0.5, 0.5],
-        color: [1.0, 1.0, 1.0],
+        // Vertex C
+        position: [0.5, 0.5],
+        color: [0.0, 0.0, 1.0],
     },
     Vertex {
         // Vertex D
         position: [-0.5, 0.5],
         color: [1.0, 1.0, 0.0],
     },
-    Vertex {
-        // Vertex B
-        position: [0.5, -0.5],
-        color: [0.0, 1.0, 0.0],
-    },
-    Vertex {
-        // Vertex C
-        position: [0.5, 0.5],
-        color: [0.0, 0.0, 1.0],
-    },
 ];
+
+const INDICES: &[u16] = &[0,1,3,3,1,2];
 
 impl Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -76,6 +68,8 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    indices_len: u32,
 }
 
 impl State {
@@ -159,6 +153,13 @@ impl State {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let indices_len = INDICES.len() as u32;
+
         Self {
             surface,
             device,
@@ -167,6 +168,8 @@ impl State {
             size,
             pipeline,
             vertex_buffer,
+            index_buffer,
+            indices_len
         }
     }
 
@@ -219,7 +222,8 @@ impl State {
 
             render_pass.set_pipeline(&self.pipeline);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..6, 0..1);
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..self.indices_len, 0, 0..1);
         }
 
         self.queue.submit(iter::once(encoder.finish()));
