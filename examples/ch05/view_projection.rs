@@ -27,4 +27,9 @@ fn main() {
   
   println!("\nfrustum matrix: {:?}\n", frustum_mat);
   println!("perspective matrix: {:?}\n", persp_mat);
+
+  let mut ortho_mat = [0.0; 16];
+  let ortho_mat = ortho(left, right, bottom, top, near, far);
+  println!("orthographic matrix: {:?}\n", ortho_mat);
+  
 }
