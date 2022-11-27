@@ -28,15 +28,15 @@ pub struct InitWgpu {
 impl InitWgpu {
   pub async fn init_wgpu(window: &Window) -> Self {
     let size = window.inner_size();
-    let instance = wgpu::Instance::new(wpgu::Backends::all());
+    let instance = wgpu::Instance::new(wgpu::Backends::all());
     let surface = unsafe { instance.create_surface(window) };
     let adapter = instance
       .request_adapter(&wgpu::RequestAdapterOptions {
-        power_perference: wgpu::PowerPreference::default(),
+        power_preference: wgpu::PowerPreference::default(),
         compatible_surface: Some(&surface),
         force_fallback_adapter: false,
       })
-      .await()
+      .await
       .unwrap();
 
     let (device, queue) = adapter
@@ -48,7 +48,7 @@ impl InitWgpu {
         },
         None,
       )
-      .await()
+      .await
       .unwrap();
 
     let config = wgpu::SurfaceConfiguration {
@@ -87,7 +87,7 @@ pub fn create_view_projection(camera_position: Point3<f32>, look_direction: Poin
     if is_perspective {
       project_mat = OPENGL_TO_WGPU_MATRIX * perspective(Rad(2.0*PI/5.0), aspect, 0.1, 100.0);
     } else {
-      project_mat = OPENGL_TO_WPGU_MATRIX * ortho(-4.0, 4.0, 3.0, 3.0, -1.0, 6.0);
+      project_mat = OPENGL_TO_WGPU_MATRIX * ortho(-4.0, 4.0, 3.0, 3.0, -1.0, 6.0);
     }
 
     let view_project_mat = project_mat * view_mat;
@@ -95,13 +95,18 @@ pub fn create_view_projection(camera_position: Point3<f32>, look_direction: Poin
     (view_mat, project_mat, view_project_mat)
 }
 
-pub fn_create_view(aspect:f32, is_perspective:bool) -> Matrix4<f32> {
+pub fn create_view(camera_position: Point3<f32>, look_direction: Point3<f32>,
+  up_direction: Vector3<f32>) -> Matrix4<f32> {
+  Matrix4::look_at_rh(camera_position, look_direction, up_direction)
+}
+
+pub fn create_projection(aspect:f32, is_perspective:bool) -> Matrix4<f32> {
   let project_mat: Matrix4<f32>;
   if is_perspective {
     project_mat = OPENGL_TO_WGPU_MATRIX * perspective(Rad(2.0*PI/5.0), aspect, 0.1, 100.0);
   } else {
     project_mat = OPENGL_TO_WGPU_MATRIX * ortho(-4.0, 4.0, 3.0, 3.0, -1.0, 6.0);
   }
-  project_mat;
+  project_mat
 }
 
