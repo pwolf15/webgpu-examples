@@ -87,7 +87,7 @@ pub fn create_view_projection(camera_position: Point3<f32>, look_direction: Poin
     if is_perspective {
       project_mat = OPENGL_TO_WGPU_MATRIX * perspective(Rad(2.0*PI/5.0), aspect, 0.1, 100.0);
     } else {
-      project_mat = OPENGL_TO_WGPU_MATRIX * ortho(-4.0, 4.0, 3.0, 3.0, -1.0, 6.0);
+      project_mat = OPENGL_TO_WGPU_MATRIX * ortho(-4.0, 4.0, -3.0, 3.0, -1.0, 6.0);
     }
 
     let view_project_mat = project_mat * view_mat;
@@ -105,7 +105,7 @@ pub fn create_projection(aspect:f32, is_perspective:bool) -> Matrix4<f32> {
   if is_perspective {
     project_mat = OPENGL_TO_WGPU_MATRIX * perspective(Rad(2.0*PI/5.0), aspect, 0.1, 100.0);
   } else {
-    project_mat = OPENGL_TO_WGPU_MATRIX * ortho(-4.0, 4.0, 3.0, 3.0, -1.0, 6.0);
+    project_mat = OPENGL_TO_WGPU_MATRIX * ortho(-4.0, 4.0, -3.0, 3.0, -1.0, 6.0);
   }
   project_mat
 }
