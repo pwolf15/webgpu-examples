@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-pub fn cube_date() -> (Vec<[i8; 3]>, Vec<[i8; 3]>, Vec<[i8; 2]>, Vec<[i8; 3]>) {
+pub fn cube_data() -> (Vec<[i8; 3]>, Vec<[i8; 3]>, Vec<[i8; 2]>, Vec<[i8; 3]>) {
     let positions = [
         // front
         [-1, -1, 1],
@@ -162,4 +162,6 @@ pub fn cube_date() -> (Vec<[i8; 3]>, Vec<[i8; 3]>, Vec<[i8; 2]>, Vec<[i8; 3]>) {
         [0, -1, 0],
         [0, -1, 0],
     ];
+
+  (positions.to_vec(), colors.to_vec(), uvs.to_vec(), normals.to_vec())
 }
