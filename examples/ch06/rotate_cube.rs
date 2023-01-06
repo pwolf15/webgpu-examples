@@ -12,7 +12,8 @@ mod transforms;
 #[path="../common/vertex_data.rs"]
 mod vertex_data;
 
-const IS_PERSPECTIVE:bool = false;
+const IS_PERSPECTIVE:bool = true;
+const ANIMATION_SPEED:f32 = 1.0;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -58,8 +59,6 @@ struct State {
   view_mat: Matrix4<f32>,
   project_mat: Matrix4<f32>,
 }
-
-const ANIMATION_SPEED:f32 = 1.0;
 
 impl State {
 
@@ -141,7 +140,7 @@ impl State {
       primitive: wgpu::PrimitiveState {
         topology: wgpu::PrimitiveTopology::TriangleList,
         strip_index_format: None,
-        //cull_mode: Some(wgpu::Face::Back),
+        cull_mode: Some(wgpu::Face::Back),
         ..Default::default()
       },
       // depth_stencil: None,
