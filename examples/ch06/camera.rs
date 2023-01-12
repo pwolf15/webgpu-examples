@@ -37,5 +37,11 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    
+    pub fn new(speed: f32) -> Self {
+        Self {
+            rotatex: 0.0,
+            rotatey: 0.0,
+            speed,
+        }
+    }
 }
