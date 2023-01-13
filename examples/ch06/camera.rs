@@ -44,4 +44,9 @@ impl CameraController {
             speed,
         }
     }
+
+    pub fn mouse_move(&mut self, mousex: f64, mousey: f64) {
+        self.rotatex = mousex as f32;
+        self.rotatey = mousey as f32;
+    }
 }
