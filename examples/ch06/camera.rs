@@ -49,4 +49,17 @@ impl CameraController {
         self.rotatex = mousex as f32;
         self.rotatey = mousey as f32;
     }
+
+    pub fn update_camera(&mut self, camera: &mut Camera) {
+        camera.yaw += Rad(self.rotatex) * self.speed;
+        camera.pitch += Rad(self.rotatey) * self.speed;
+
+        self.rotatex = 0.0;
+        self.rotatey = 0.0;
+        if camera.pitch < -Rad(89.0*PI/180.0) {
+            camera.pitch = -Rad(89.0/180.0);
+        } else if camera.pitch > Rad(89.0/180.0) {
+            camera.pitch = Rad(89.0*PI/180.0);
+        }
+    }
 }
