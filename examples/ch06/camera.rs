@@ -57,8 +57,8 @@ impl CameraController {
         self.rotatex = 0.0;
         self.rotatey = 0.0;
         if camera.pitch < -Rad(89.0*PI/180.0) {
-            camera.pitch = -Rad(89.0/180.0);
-        } else if camera.pitch > Rad(89.0/180.0) {
+            camera.pitch = -Rad(89.0*PI/180.0);
+        } else if camera.pitch > Rad(89.0*PI/180.0) {
             camera.pitch = Rad(89.0*PI/180.0);
         }
     }
