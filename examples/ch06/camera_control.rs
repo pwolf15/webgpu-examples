@@ -12,8 +12,23 @@ mod transforms;
 #[path="../common/vertex_data.rs"]
 mod vertex_data;
 
-const IS_PERSPECTIVE:bool = true;
-const ANIMATION_SPEED:f32 = 1.0;
+#[repr(C)]
+#[derive(Copy,Clone,bytemuck::Pod,bytemuck::Zeroable)]
+struct CameraUniform {
+  view_mat: [[f32; 4]; 4],
+}
+
+impl CameraUniform {
+  fn new() -> Self {
+    Self {
+      view_mat: cgmath::Matrix4::identity().into(),
+    }
+  }
+
+  fn update_view_project(&mut self, camera: &camera::Camera, project_mat: Matrix4<f32>) {
+    self.view_mat = (project_mat * camera.view_mat()).into()
+  }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -53,11 +68,14 @@ struct State {
   init: transforms::InitWgpu,
   pipeline: wgpu::RenderPipeline,
   vertex_buffer: wgpu::Buffer,
-  uniform_buffer: wgpu::Buffer,
-  uniform_bind_group: wgpu::BindGroup,
-  model_mat: Matrix4<f32>,
-  view_mat: Matrix4<f32>,
-  project_mat: Matrix4<f32>,
+
+  camera: camera::Camera,
+  projection: Matrix4<f32>,
+  camera_controller: camera::CameraController,
+  camera_uniform: CameraUniform,
+  camera_buffer: wgpu::Buffer,
+  camera_bind_group: wgpu::BindGroup,
+  mouse_pressed: bool,
 }
 
 impl State {
@@ -69,6 +87,11 @@ impl State {
       label: Some("Shader"),
       source: wgpu::ShaderSource::Wgsl(include_str!("cube_face_color.wgsl").into()),
     });
+
+    let camera = camera::Camera::new((2.0,3.0,5.0), cgmath::Deg(-80.0), cgmath::Deg(-30.0));
+    let projection = transforms::create_projection(
+      init.config.width as f32/init.config.height as f32, true);
+    let camera_controller = camera::CameraController::new(0.005);
 
     let camera_position = (3.0, 1.5, 3.0).into();
     let look_direction = (0.0,0.0,0.0).into();
