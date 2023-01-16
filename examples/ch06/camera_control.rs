@@ -9,6 +9,7 @@ use winit::{
 use bytemuck:: {Pod, Zeroable, cast_slice};
 #[path="../common/transforms.rs"]
 mod transforms;
+mod camera;
 #[path="../common/vertex_data.rs"]
 mod vertex_data;
 
@@ -93,28 +94,20 @@ impl State {
       init.config.width as f32/init.config.height as f32, true);
     let camera_controller = camera::CameraController::new(0.005);
 
-    let camera_position = (3.0, 1.5, 3.0).into();
-    let look_direction = (0.0,0.0,0.0).into();
-    let up_direction = cgmath::Vector3::unit_y();
+    let mut camera_uniform = CameraUniform::new();
+    camera_uniform.update_view_project(&camera, projection);
 
-    let model_mat = transforms::create_transforms([0.0,0.0,0.0], [0.0,0.0,0.0], [1.0,1.0,1.0]);
-    let (view_mat, project_mat, view_project_mat) = 
-      transforms::create_view_projection(camera_position, look_direction, up_direction,
-      init.config.width as f32 / init.config.height as f32, IS_PERSPECTIVE);
-    let mvp_mat = view_project_mat * model_mat;
-
-    let mvp_ref:&[f32; 16] = mvp_mat.as_ref();
-    let uniform_buffer = init.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-      label: Some("Uniform Buffer"),
-      contents: bytemuck::cast_slice(mvp_ref),
+    let camera_buffer = init.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+      label: Some("Camera Buffer"),
+      contents: bytemuck::cast_slice(&[camera_uniform]),
       usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
     });
 
-    let uniform_bind_group_layout =
+    let camera_bind_group_layout =
       init.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         entries: &[wgpu::BindGroupLayoutEntry {
           binding: 0,
-          visibility: wgpu::ShaderStages::VERTEX,
+          visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
           ty: wgpu::BindingType::Buffer {
             ty: wgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,
@@ -125,18 +118,18 @@ impl State {
         label: Some("Uniform Bind Group Layout",)
       });
 
-    let uniform_bind_group = init.device.create_bind_group(&wgpu::BindGroupDescriptor{
-      layout: &uniform_bind_group_layout,
+    let camera_bind_group = init.device.create_bind_group(&wgpu::BindGroupDescriptor{
+      layout: &camera_bind_group_layout,
       entries: &[wgpu::BindGroupEntry {
         binding: 0,
-        resource: uniform_buffer.as_entire_binding(),
+        resource: camera_buffer.as_entire_binding(),
       }],
       label: Some("Uniform Bind Group"),
     });
 
     let pipeline_layout = init.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor{
       label: Some("Render Pipeline Layout"),
-      bind_group_layouts: &[&uniform_bind_group_layout],
+      bind_group_layouts: &[&camera_bind_group_layout],
       push_constant_ranges: &[],
     });
 
@@ -187,42 +180,55 @@ impl State {
       init,
       pipeline,
       vertex_buffer,
-      uniform_buffer,
-      uniform_bind_group,
-      model_mat,
-      view_mat,
-      project_mat
+      camera,
+      projection,
+      camera_controller,
+      camera_buffer,
+      camera_bind_group,
+      camera_uniform,
+      mouse_pressed: false
     }
   }
 
   pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
     if new_size.width > 0 && new_size.height > 0 {
+      self.projection = transforms::create_projection(new_size.width as f32/new_size.height as f32, true);
       self.init.size = new_size;
       self.init.config.width = new_size.width;
       self.init.config.height = new_size.height;
       self.init.surface.configure(&self.init.device, &self.init.config);
-
-      self.project_mat = transforms::create_projection(
-        new_size.width as f32 / new_size.height as f32, IS_PERSPECTIVE);
-      let mvp_mat = self.project_mat * self.view_mat * self.model_mat;
-      let mvp_ref:&[f32; 16] = mvp_mat.as_ref();
-      self.init.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(mvp_ref));
     }
   }
 
   #[allow(unused_variables)]
-  fn input(&mut self, event: &WindowEvent) -> bool {
-    false
+  fn input(&mut self, event: &DeviceEvent) -> bool {
+    match event {
+      DeviceEvent::Button {
+        button: 1,
+        state,
+      } => {
+        self.mouse_pressed = *state == ElementState::Pressed;
+        true
+      }
+      DeviceEvent::MouseMotion { delta } => {
+        if self.mouse_pressed {
+          self.camera_controller.mouse_move(delta.0, delta.1);
+        }
+        true
+      }
+      _ => false,
+    }
   }
 
-  fn update(&mut self, dt: std::time::Duration) {
-    // update uniform buffer
-    let dt = ANIMATION_SPEED * dt.as_secs_f32();
-    let model_mat = transforms::create_transforms([0.0,0.0,0.0],
-      [dt.sin(), dt.cos(), 0.0], [1.0,1.0,1.0]);
-    let mvp_mat = self.project_mat * self.view_mat * model_mat;
-    let mvp_ref:&[f32; 16] = mvp_mat.as_ref();
-    self.init.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(mvp_ref));
+  fn update(&mut self) {
+    self.camera_controller.update_camera(&mut self.camera);
+    self.camera_uniform
+        .update_view_project(&self.camera, self.projection);
+    self.init.queue.write_buffer(
+      &self.camera_buffer,
+      0,
+      bytemuck::cast_slice(&[self.camera_uniform]),
+    );
   }
 
   fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -280,7 +286,7 @@ impl State {
 
       render_pass.set_pipeline(&self.pipeline);
       render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-      render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+      render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
       render_pass.draw(0..36, 0..1);
     }
 
@@ -302,11 +308,18 @@ fn main() {
 
   event_loop.run(move | event, _, control_flow| {
     match event {
+      Event::MainEventsCleared => window.request_redraw(),
+      Event::DeviceEvent {
+        ref event,
+        ..
+      } => {
+        state.input(event);
+      }
       Event::WindowEvent {
         ref event,
         window_id,
       } if window_id == window.id() => {
-        if !state.input(event) {
+        // if !state.input(event) {
           match event {
             WindowEvent::CloseRequested
             | WindowEvent::KeyboardInput {
@@ -326,12 +339,11 @@ fn main() {
             }
             _ => {}
           }
-        }
+        //}
       }
       Event::RedrawRequested(_) => {
-        let now = std::time::Instant::now();
-        let dt = now - render_start_time;
-        state.update(dt);
+        state.update();
+
         match state.render() {
           Ok(_) => {}
           Err(wgpu::SurfaceError::Lost) => state.resize(state.init.size),
