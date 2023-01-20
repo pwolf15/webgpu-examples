@@ -16,3 +16,6 @@ const IS_PERSPECTIVE:bool = true;
 
 #[repr(C)]
 #[derive(COpy, Clone, Debug, Pod, Zeroables)]
+pub struct Vertex {
+    position: [f32; 4],
+}
