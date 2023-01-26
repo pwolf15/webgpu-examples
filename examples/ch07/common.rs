@@ -36,3 +36,24 @@ impl Vertex {
         }
     }
 }
+
+struct State {
+    init: transforms::InitWgpu,
+    pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+
+    camera: camera::Camera,
+    projection: Matrix4<f32>,
+    camera_controller: camera::CameraController,
+    camera_uniform: CameraUniform,
+    camera_buffer: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup,
+    mouse_pressed: bool,
+}
+
+impl State {
+    async fn new(window: &Window) -> Self {
+        let init = transforms::InitWgpu::init_wgpu(window).await;
+        
+    }
+}
