@@ -1,0 +1,224 @@
+<html>
+    <head><title>Basic WebGPU Program</title></head>
+<body>
+    <script type="text/plain" id="vert.wgsl">
+        struct VSOut {
+            @builtin(position) Position: vec4<f32>,
+            @location(0) uvs: vec2<f32>
+        };
+
+        @vertex
+        fn main(@builtin(vertex_index) VertexIndex: u32) -> VSOut
+        {
+            var s = 1.0;
+            var pos = array<vec2<f32>, 4>(vec2<f32>(-s,  s),
+                                          vec2<f32>(-s, -s),
+                                          vec2<f32>( s,  s),
+                                          vec2<f32>( s, -s));
+            s = 1.0;
+            var uvs = array<vec2<f32>, 4>(vec2<f32>(-s,  s),
+                                          vec2<f32>(-s, -s),
+                                          vec2<f32>( s,  s),
+                                          vec2<f32>( s, -s));
+            var vsOut: VSOut;
+            vsOut.Position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
+            vsOut.uvs = uvs[VertexIndex] * 0.5 + 0.5;
+            return vsOut;
+        }
+    </script>
+    <script type="text/plain" id="frag.wgsl">
+        @group(0) @binding(0) var <uniform> iResolution: vec2<f32>;
+        @group(0) @binding(1) var <uniform> iRayOrigin: vec3<f32>;
+        @group(0) @binding(2) var <uniform> iRayDir: vec3<f32>;
+        @group(0) @binding(3) var <uniform> iRayUp: vec3<f32>;
+        @group(0) @binding(4) var <uniform> iNear: f32;
+        @group(0) @binding(5) var <uniform> iFar: f32;
+        @group(0) @binding(6) var <uniform> iTime: f32;
+        @group(0) @binding(7) var <uniform> iCursor: vec2<f32>;
+
+        struct Ray {
+            origin: vec3<f32>,
+            dir: vec3<f32>
+        };
+
+        struct Sphere {
+            center: vec3<f32>,
+            radius: f32
+        };
+
+        fn rayIntersectsSphere(ray: Ray, sphere: Sphere) -> f32
+        {
+            var rc = ray.origin - sphere.center;
+            var c = dot(rc, rc) - (sphere.radius*sphere.radius);
+            var b = dot(ray.dir, rc);
+            var d = b*b - c;
+
+            var t= -b - sqrt(abs(d));
+
+            if (d < 0.0 || t < 0.0) {
+                t = 0.0; // didn't hit
+            }
+
+            // computing hit point and normal
+            // let hitPoint = ray.origin + ray.dir * t;
+            // let hitNormal = normalize(hitPoint - sphere.center);
+
+            return t; // Hit
+        }
+
+        @fragment
+        fn main(@location(0) coords: vec2<f32>) -> @location(0) vec4<f32>
+        {
+            // 0->1 to -1->1
+            let uv = (-1.0 + 2.0*coords.xy);
+
+            // define a test sphere at 0,0,0 (radius 0.5)
+            let sphere = Sphere(vec3<f32>(0.0,0.0,0.0),0.5);
+            
+            // Create a test ray (test camera); hardcoded for testing 
+            var ray : Ray;
+            ray.origin = vec3<f32>(0.0,0.0,-1.0);
+            ray.dir = normalize(vec3<f32>(uv, 0.0) - ray.origin);
+
+            // call ray-sphere intersection
+            var t = rayIntersectsSphere(ray, sphere);
+
+            if (t <= 0.0) // 0.0 - no Hit
+            {
+                return vec4<f32>(1.0);
+            }
+
+            // a hit! (display constant color)
+            return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+        }
+    </script>
+    <script type="text/javascript" async>
+
+        async function start() {
+
+        
+        const canvas = document.createElement("canvas");
+        document.body.appendChild(canvas);
+        canvas.width = canvas.height = 512;
+        console.log(canvas.width, canvas.height);
+        const context = canvas.getContext('webgpu');
+
+        const gpu = navigator.gpu;
+
+        console.log('gpu:', gpu);
+
+        const adapter = await gpu.requestAdapter();
+        const device = await adapter.requestDevice();
+        console.log(context);
+        const presentationFormat = gpu.getPreferredCanvasFormat(adapter);
+        console.log(presentationFormat);
+
+        context.configure({
+            device: device,
+            format: presentationFormat
+        });
+
+        var vertWGSL = document.getElementById('vert.wgsl').innerHTML;
+        var fragWGSL = document.getElementById('frag.wgsl').innerHTML;
+
+        const uniformUsage = GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST;
+        const iResolution = device.createBuffer({size: 8, usage: uniformUsage});
+        const iRayOrigin = device.createBuffer({size: 12, usage: uniformUsage});
+        const iRayDir = device.createBuffer({size: 12, usage: uniformUsage});
+        const iRayUp = device.createBuffer({size: 12, usage: uniformUsage});
+        const iNear = device.createBuffer({size: 4, usage: uniformUsage});
+        const iFar = device.createBuffer({size: 4, usage: uniformUsage});
+        const iTime = device.createBuffer({size: 4, usage: uniformUsage});
+        const iCursor = device.createBuffer({size: 8, usage: uniformUsage});
+
+        const sceneUniformBindGroupLayout = device.createBindGroupLayout({
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" }},
+                { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" }},
+                { binding: 2, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" }},
+                { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" }},
+                { binding: 4, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" }},
+                { binding: 5, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" }}, 
+                { binding: 6, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" }},
+                { binding: 7, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" }}, 
+            ]
+        });
+
+        const uniformBindGroup = device.createBindGroup({
+            layout: sceneUniformBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: iResolution }},
+                { binding: 1, resource: { buffer: iRayOrigin }},
+                { binding: 2, resource: { buffer: iRayDir }},
+                { binding: 3, resource: { buffer: iRayUp }},
+                { binding: 4, resource: { buffer: iNear }},
+                { binding: 5, resource: { buffer: iFar }}, 
+                { binding: 6, resource: { buffer: iTime }},
+                { binding: 7, resource: { buffer: iCursor }}, 
+            ]
+        });
+
+        const pipeline = device.createRenderPipeline(
+            {
+                layout: device.createPipelineLayout({ bindGroupLayouts: [
+                    sceneUniformBindGroupLayout
+                ]}),
+                vertex: { module: device.createShaderModule({
+                        code: vertWGSL
+                    }),
+                    entryPoint: 'main'
+                },
+                fragment: { module: device.createShaderModule({
+                        code: fragWGSL,
+                    }),
+                    entryPoint: 'main',
+                    targets: [{ format: presentationFormat }]
+                },
+                primitive: { topology: 'triangle-strip',
+                    frontFace : 'ccw',
+                    stripIndexFormat: 'uint32' }
+            });
+
+        const renderPassDescriptor = {
+            colorAttachments: [{
+                view: undefined,
+                loadOp: 'clear',
+                clearValue: { r: 0.0, g: 0.5, b: 0.5, a: 1.0 },
+                storeOp: 'store'
+            }]
+        };
+
+        let timeCounter = 0.0;
+
+        function frame() {
+
+            timeCounter += 0.01;
+            device.queue.writeBuffer(iResolution, 0, new Float32Array([
+                canvas.clientWidth, canvas.clientHeight]));
+            device.queue.writeBuffer(iRayOrigin, 0, new Float32Array([0,0,-1]));
+            device.queue.writeBuffer(iRayDir, 0, new Float32Array([0,0,1]));
+            device.queue.writeBuffer(iRayUp, 0, new Float32Array([0,1,0]));
+            device.queue.writeBuffer(iNear, 0, new Float32Array([0]));
+            device.queue.writeBuffer(iFar, 0, new Float32Array([100000]));
+            device.queue.writeBuffer(iTime, 0, new Float32Array([timeCounter]));
+            device.queue.writeBuffer(iCursor, 0, new Float32Array([0,0]));
+
+            renderPassDescriptor.colorAttachments[0].view = context.getCurrentTexture().createView();
+
+            const commandEncoder = device.createCommandEncoder();
+            const renderPass = commandEncoder.beginRenderPass(renderPassDescriptor);
+            renderPass.setPipeline(pipeline);
+            renderPass.setBindGroup(0, uniformBindGroup);
+            renderPass.draw(4, 1, 0, 0);
+
+            renderPass.end();
+            device.queue.submit([commandEncoder.finish()]);
+
+            requestAnimationFrame(frame);
+        };
+        frame();
+    }
+    start();
+    </script>
+</body>
+</html>
