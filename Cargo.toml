@@ -84,3 +84,7 @@ path = "examples/ch06/rotate_cube.rs"
 [[example]]
 name = "ch06_camera_control"
 path = "examples/ch06/camera_control.rs"
+
+[[example]]
+name = "ch12_two_cubes"
+path = "examples/ch12/two_cubes.rs"

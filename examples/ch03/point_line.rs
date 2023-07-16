@@ -7,7 +7,7 @@ use winit::{
 use std::borrow::Cow;
 
 fn main() {
-  let mut primitive_type = "point-list";
+  let mut primitive_type = "line-list";
   let args: Vec<String> = std::env::args().collect();
   if args.len() > 1 {
     primitive_type = &args[1];
