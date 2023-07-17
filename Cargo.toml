@@ -88,3 +88,7 @@ path = "examples/ch06/camera_control.rs"
 [[example]]
 name = "ch12_two_cubes"
 path = "examples/ch12/two_cubes.rs"
+
+[[example]]
+name = "ch12_cube_instance"
+path = "examples/ch12/cube_instance.rs"
