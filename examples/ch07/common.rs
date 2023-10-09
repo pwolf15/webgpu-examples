@@ -134,5 +134,148 @@ impl State {
             depth_stencil: None,
             multisample: wgpu::MultisampleState::default(),
         });
+
+        let vertex_buffer = init.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: cast_slice(mesh_data),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let num_vertices = mesh_data.len() as u32;
+    
+        Self {
+            init,
+            pipeline,
+            vertex_buffer,
+            uniform_bind_group,
+            uniform_buffer,
+            view_mat,
+            project_mat,
+            num_vertices,
+        }
     }
+
+    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        if new_size.width > 0 && new_size.height > 0 {
+            self.init.size = new_size;
+            self.init.config.width = new_size.width;
+            self.init.config.height = new_size.height;
+            self.init.surface.configure(&self.init.device, &self.init.config);
+            self.project_mat = transforms::
+                create_projection(new_size.width as f32 / new_size.height as f32, IS_PERSPECTIVE);
+        }
+    }
+
+    #[allow(unused_variables)]
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        false
+    }
+
+    fn update(&mut self, dt: std::time::Duration) {
+        let dt = ANIMATION_SPEED * dt.as_secs_f32();
+        let model_mat = transforms::create_transforms([0.0,0.0,0.0],
+            [dt.sin(), dt.cos(), 0.0], [1.0,1.0,1.0]);
+        let mvp_mat = self.project_mat * self.view_mat * model_mat;
+        let mvp_ref:&[f32: 16] = mvp_mat.as_ref();
+        self.init.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(mvp_ref));
+    }
+
+    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let output = self.init.surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        let mut encoder = self
+            .init.device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.2,
+                            g: 0.247,
+                            b: 0.314,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                }],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(&self.pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.draw(0..self.num_vertices, 0..1);
+        }
+
+        self.init.queue.submit(iter::once(encoder.finish()));
+        output.present();
+
+        Ok(())
+    }
+}
+
+pub fn run(mesh_data: &Vec<Vertex>, title: &str) {
+    env_logger::init();
+    let event_lop = EventLoop::new();
+    let window = winit::window::WindowBuilder::new().build(&event_loop).unwrap();
+    window.set_title(&*format!("ch07_{}", title));
+
+    let mut state = pollster::block_on(State::new(&window, &mesh_data));
+    let render_start_time = std::time::Instant::now();
+
+    event_loop.run(move | event, _, control_flow | {
+        match event {
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == window.id() => {
+                if !state.input(event) {
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput { 
+                            input:
+                                KeyboardInput {
+                                    state: ElementState::Pressed,
+                                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => *control_flow = ControlFlow::Exit,
+                        WindowEvent::Resized(physical_size) => {
+                            state.resize(*physical_size);
+                        }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            state.resize(**new_inner_size);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Event::RedrawRequested(_) => {
+                let now = std::time::Instant::now():
+                let dt = now - render_start_time;
+                state.update(dt);
+
+                match state.render() {
+                    Ok(_) => {}
+                    Err(wgpu::SurfaceError::Lost) => state.resize(state.init.size),
+                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+                    Err(e) => eprintln!("{:?}", e),
+                }
+            }
+            Event::MainEventsCleared => {
+                window.request_redraw();
+            }
+            _ => {}
+        }
+    });
 }
