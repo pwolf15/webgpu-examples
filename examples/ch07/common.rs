@@ -1,6 +1,6 @@
 use std:: {iter, mem};
 use cgmath::Matrix4;
-use wgpu::Util::DeviceExt;
+use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     window::Window,
@@ -15,7 +15,7 @@ const ANIMATION_SPEED:f32 = 1.0;
 const IS_PERSPECTIVE:bool = true;
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroables)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex {
     position: [f32; 4],
 }
@@ -70,7 +70,7 @@ impl State {
         let mvp_mat = view_project_mat * model_mat;
 
         let mvp_ref:&[f32; 16] = mvp_mat.as_ref();
-        let uniform_buffer = init.device.create_buffer_init(&wpgu::util::BufferInitDescriptor {
+        let uniform_buffer = init.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
             contents: bytemuck::cast_slice(mvp_ref),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -82,10 +82,10 @@ impl State {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
-                    ty::BufferBindingType::Uniform,
+                    ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     min_binding_size: None,
-                }
+                },
                 count: None,
             }],
             label: Some("Uniform Bind Group Layout"),
@@ -93,7 +93,7 @@ impl State {
 
         let uniform_bind_group = init.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEEntry {
+            entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: uniform_buffer.as_entire_binding(),
             }],
@@ -119,14 +119,14 @@ impl State {
                 entry_point: "fs_main",
                 targets: &[wgpu::ColorTargetState {
                     format: init.config.format,
-                    blend: Some(wgpu::blendState {
+                    blend: Some(wgpu::BlendState {
                         color: wgpu::BlendComponent::REPLACE,
                         alpha: wgpu::BlendComponent::REPLACE,
                     }),
                     write_mask: wgpu::ColorWrites::ALL,
                 }],
             }),
-            primite: wgpu::PrimitiveState {
+            primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::LineList,
                 strip_index_format: None,
                 ..Default::default()
@@ -175,7 +175,7 @@ impl State {
         let model_mat = transforms::create_transforms([0.0,0.0,0.0],
             [dt.sin(), dt.cos(), 0.0], [1.0,1.0,1.0]);
         let mvp_mat = self.project_mat * self.view_mat * model_mat;
-        let mvp_ref:&[f32: 16] = mvp_mat.as_ref();
+        let mvp_ref:&[f32; 16] = mvp_mat.as_ref();
         self.init.queue.write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(mvp_ref));
     }
 
@@ -225,7 +225,7 @@ impl State {
 
 pub fn run(mesh_data: &Vec<Vertex>, title: &str) {
     env_logger::init();
-    let event_lop = EventLoop::new();
+    let event_loop = EventLoop::new();
     let window = winit::window::WindowBuilder::new().build(&event_loop).unwrap();
     window.set_title(&*format!("ch07_{}", title));
 
@@ -261,7 +261,7 @@ pub fn run(mesh_data: &Vec<Vertex>, title: &str) {
                 }
             }
             Event::RedrawRequested(_) => {
-                let now = std::time::Instant::now():
+                let now = std::time::Instant::now();
                 let dt = now - render_start_time;
                 state.update(dt);
 

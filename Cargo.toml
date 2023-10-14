@@ -92,3 +92,7 @@ path = "examples/ch12/two_cubes.rs"
 [[example]]
 name = "ch12_cube_instance"
 path = "examples/ch12/cube_instance.rs"
+
+[[example]]
+name = "ch07_cube"
+path = "examples/ch07/cube.rs"
